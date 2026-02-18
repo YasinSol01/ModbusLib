@@ -1,9 +1,10 @@
 # ModbusLib [![](https://jitpack.io/v/YasinSol01/ModbusLib.svg)](https://jitpack.io/#YasinSol01/ModbusLib)
 
-An Android library for Modbus communication over TCP and RTU (USB Serial RS-485). Provides a unified API for both protocols with built-in support for priority queuing, batch reads, synchronous operations, and automatic reconnection.
+An Android library for Modbus communication over TCP and RTU (USB Serial RS-485). Provides a unified API for both protocols with built-in support for Master and Slave modes, priority queuing, batch reads, synchronous operations, and automatic reconnection.
 
 ## Features
 
+### Master Mode (Client)
 - Modbus TCP (socket-based) and Modbus RTU (USB-to-Serial RS-485)
 - Unified API across both protocols
 - Function codes: FC01, FC02, FC03, FC04, FC05, FC06, FC0F, FC10
@@ -11,6 +12,15 @@ An Android library for Modbus communication over TCP and RTU (USB Serial RS-485)
 - Batch read operations
 - Synchronous (blocking) API for background threads
 - Auto-reconnect with exponential backoff (TCP)
+
+### Slave Mode (Server)
+- Act as a Modbus slave device on TCP or RTU
+- Thread-safe RegisterMap for Coils, Discrete Inputs, Holding Registers, Input Registers
+- Multi-client support (TCP: multiple masters can connect simultaneously)
+- Custom request handler for dynamic value updates
+- Register change notifications
+
+### Common
 - USB adapter auto-detection (FTDI, CP210x, PL2303, CH340)
 - CRC-16 validation (RTU) and MBAP frame assembly (TCP)
 - Thread-safe design
@@ -337,19 +347,143 @@ The library declares the following permissions in its manifest:
 
 For RTU mode, USB host permission must be granted by the user when a device is connected.
 
+## Slave Mode
+
+### TCP Slave
+
+```java
+import com.itclink.modbuslib.ModbusSlave;
+import com.itclink.modbuslib.ModbusSlaveBuilder;
+import com.itclink.modbuslib.protocol.ModbusProtocol;
+
+ModbusSlave slave = new ModbusSlaveBuilder(context)
+    .protocol(ModbusProtocol.TCP)
+    .slaveId(1)
+    .port(502)
+    .build();
+
+// Set initial register values
+slave.setHoldingRegister(0, 1234);
+slave.setHoldingRegister(1, 5678);
+slave.setInputRegister(0, 9999);
+slave.setCoil(0, true);
+
+// Start listening for master connections
+slave.start();
+```
+
+### RTU Slave (USB Serial)
+
+```java
+ModbusSlave slave = new ModbusSlaveBuilder(context)
+    .protocol(ModbusProtocol.RTU)
+    .slaveId(1)
+    .serialConfig(new UsbSerialConfig.Builder()
+        .baudRate(9600)
+        .parity(UsbSerialConfig.PARITY_EVEN)
+        .build())
+    .build();
+
+slave.setHoldingRegister(0, 1234);
+slave.start();
+```
+
+### Updating Register Values at Runtime
+
+```java
+// Values can be updated at any time while the slave is running.
+// Masters will receive the latest values on their next read request.
+slave.setHoldingRegister(0, getTemperatureValue());
+slave.setInputRegister(0, getPressureValue());
+slave.setCoil(0, isMotorRunning());
+```
+
+### Custom RegisterMap Size
+
+```java
+import com.itclink.modbuslib.slave.RegisterMap;
+
+// Custom: 100 coils, 100 discrete inputs, 500 holding registers, 500 input registers
+RegisterMap registerMap = new RegisterMap(100, 100, 500, 500);
+
+ModbusSlave slave = new ModbusSlaveBuilder(context)
+    .protocol(ModbusProtocol.TCP)
+    .slaveId(1)
+    .port(502)
+    .registerMap(registerMap)
+    .build();
+```
+
+### Custom Request Handler
+
+```java
+import com.itclink.modbuslib.slave.SlaveRequestHandler;
+
+ModbusSlave slave = new ModbusSlaveBuilder(context)
+    .protocol(ModbusProtocol.TCP)
+    .slaveId(1)
+    .port(502)
+    .requestHandler(new SlaveRequestHandler() {
+        @Override
+        public boolean onBeforeRead(int functionCode, int address, int quantity) {
+            // Update register values dynamically before they are read
+            if (functionCode == 0x04 && address == 0) {
+                slave.setInputRegister(0, readSensorValue());
+            }
+            return true; // Allow the read
+        }
+
+        @Override
+        public void onAfterWrite(int functionCode, int address, int quantity) {
+            // React to write commands from master
+            Log.d("Slave", "Master wrote to address " + address);
+        }
+
+        @Override
+        public void onSlaveEvent(SlaveEvent event, String message) {
+            if (event == SlaveEvent.CLIENT_CONNECTED) {
+                Log.d("Slave", "Master connected from " + message);
+            }
+        }
+    })
+    .build();
+```
+
+### Register Change Listener
+
+```java
+slave.getRegisterMap().setChangeListener((type, address, quantity) -> {
+    Log.d("Slave", type + " changed at address " + address + " (qty=" + quantity + ")");
+});
+```
+
+### Slave Status
+
+```java
+boolean running = slave.isRunning();
+int clients = slave.getClientCount();   // TCP only
+long requests = slave.getRequestCount();
+long errors = slave.getErrorCount();
+
+slave.stop();
+```
+
 ## Architecture
 
 ```
 com.itclink.modbuslib
-|-- ModbusClient              Public API facade
-|-- ModbusClientBuilder       Builder for client construction
+|-- ModbusClient              Master mode public API
+|-- ModbusClientBuilder       Builder for master client
+|-- ModbusSlave               Slave mode public API
+|-- ModbusSlaveBuilder        Builder for slave server
 |-- callback/                 Async callback interfaces
 |-- command/                  Command and batch request models
 |-- connection/               Connection state and configuration
-|-- engine/                   Core engine with queue and retry logic
+|-- engine/                   Core master engine with queue and retry logic
 |-- exception/                Typed exception hierarchy
 |-- protocol/                 Frame builders and response parsers (RTU/TCP)
-|-- transport/                Transport layer (TCP socket / USB serial)
+|-- slave/                    Slave engine, RegisterMap, transports
+|-- transport/                Master transport layer (TCP socket / USB serial)
 |-- util/                     Logging, byte utils, cache, validation
 ```
 

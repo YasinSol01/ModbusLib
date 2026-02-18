@@ -22,4 +22,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "ModbusLib"
 include(":modbuslib")
-include(":modbuslibjava")

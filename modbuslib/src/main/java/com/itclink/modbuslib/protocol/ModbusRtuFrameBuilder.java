@@ -64,6 +64,20 @@ public class ModbusRtuFrameBuilder implements ModbusFrameBuilder {
         return received == calculated;
     }
 
+    /**
+     * Creates a new byte array with CRC appended.
+     * Used by SlaveEngine to build RTU response frames.
+     */
+    public byte[] buildFrameWithCRC(byte[] data) {
+        if (data == null || data.length == 0) return data;
+        byte[] frame = new byte[data.length + 2];
+        System.arraycopy(data, 0, frame, 0, data.length);
+        int crc = calculateCRC(frame, data.length);
+        frame[data.length] = (byte) (crc & 0xFF);
+        frame[data.length + 1] = (byte) ((crc >> 8) & 0xFF);
+        return frame;
+    }
+
     private void appendCRC(byte[] frame, int length) {
         if (frame == null || length < 0 || length + 2 > frame.length) return;
         int crc = calculateCRC(frame, length);
