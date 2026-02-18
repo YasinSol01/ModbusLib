@@ -11,7 +11,7 @@ public class RtuResponseParser implements ModbusResponseParser {
     private final ModbusRtuFrameBuilder frameBuilder;
 
     public RtuResponseParser() {
-        this.frameBuilder = frameBuilder;
+        this.frameBuilder = new ModbusRtuFrameBuilder();
     }
 
     @Override
