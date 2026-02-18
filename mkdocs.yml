@@ -1,0 +1,48 @@
+site_name: ModbusLib Documentation
+site_url: https://yasinsol01.github.io/ModbusLib/
+repo_url: https://github.com/YasinSol01/ModbusLib
+repo_name: YasinSol01/ModbusLib
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - search.suggest
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: installation.md
+    - Quick Start: quickstart.md
+  - Guide:
+    - Master Mode: master.md
+    - Slave Mode: slave.md
+    - Gateway (M/S): gateway.md
+  - API Reference: api-reference.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonitions
+  - tables
+  - toc:
+      permalink: true
