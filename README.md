@@ -1,4 +1,4 @@
-# ModbusLib
+# ModbusLib [![](https://jitpack.io/v/YasinSol01/ModbusLib.svg)](https://jitpack.io/#YasinSol01/ModbusLib)
 
 An Android library for Modbus communication over TCP and RTU (USB Serial RS-485). Provides a unified API for both protocols with built-in support for priority queuing, batch reads, synchronous operations, and automatic reconnection.
 
