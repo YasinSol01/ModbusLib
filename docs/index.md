@@ -27,6 +27,7 @@ Provides a unified API for both protocols with built-in support for **Master** a
 ### Common
 
 - USB adapter auto-detection (FTDI, CP210x, PL2303, CH340)
+- **Native UART** support for built-in RS-485 ports (`/dev/ttyS*`, requires root)
 - CRC-16 validation (RTU) and MBAP frame assembly (TCP)
 - Thread-safe design
 
@@ -51,7 +52,7 @@ com.itclink.modbuslib
 |-- exception/                Typed exception hierarchy
 |-- protocol/                 Frame builders and response parsers (RTU/TCP)
 |-- slave/                    Slave engine, RegisterMap, transports
-|-- transport/                Master transport layer (TCP socket / USB serial)
+|-- transport/                Master transport layer (TCP socket / USB serial / Native UART)
 |-- util/                     Logging, byte utils, cache, validation
 ```
 

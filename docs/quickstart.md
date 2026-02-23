@@ -56,6 +56,31 @@ client.connect();
 client.readHoldingRegisters(1, 0, 10, callback, false);
 ```
 
+## RTU Master - Native UART
+
+For devices with built-in RS-485 serial ports (e.g. `/dev/ttyS*`). Requires root.
+
+```java
+import com.itclink.modbuslib.transport.NativeSerialTransport;
+
+// Find available ports (for diagnostics)
+List<String> ports = NativeSerialTransport.findAvailablePorts();
+Log.d("Modbus", "Available ports: " + ports);
+
+// Build transport for the RS-485 port
+NativeSerialTransport transport = new NativeSerialTransport.Builder("/dev/ttyS4")
+    .baudRate(9600)
+    .parity(NativeSerialTransport.PARITY_EVEN)
+    .build();
+
+ModbusClient client = new ModbusClientBuilder(context)
+    .transport(transport)
+    .build();
+
+client.connect();
+client.readHoldingRegisters(1, 0, 10, callback, false);
+```
+
 ## TCP Slave - Serve Registers
 
 ```java

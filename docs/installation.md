@@ -21,7 +21,7 @@ In your module's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.github.YasinSol01:ModbusLib:v1.0.2")
+    implementation("com.github.YasinSol01:ModbusLib:v1.0.1")
 }
 ```
 

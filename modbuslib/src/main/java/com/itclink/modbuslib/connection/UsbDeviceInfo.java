@@ -26,16 +26,27 @@ public class UsbDeviceInfo {
     }
 
     public static String detectChipType(int vendorId, int productId) {
-        // FTDI FT232
+        // FTDI
         if (vendorId == 0x0403 && productId == 0x6001) return "FTDI";
-        // CP210x
+        if (vendorId == 0x0403 && productId == 0x6015) return "FTDI_FT231X";
+        // Silicon Labs CP210x
         if (vendorId == 0x10C4 && productId == 0xEA60) return "CP210x";
-        // PL2303
+        if (vendorId == 0x10C4 && productId == 0xEA70) return "CP2102N";
+        // Prolific
         if (vendorId == 0x067B && productId == 0x2303) return "PL2303";
-        // CH340
+        // WCH single-port
         if (vendorId == 0x1A86 && productId == 0x7523) return "CH340";
-        // Built-in serial
+        if (vendorId == 0x1A86 && productId == 0x7522) return "CH340K";
+        if (vendorId == 0x1A86 && productId == 0x5523) return "CH341";
+        // WCH built-in (IXHUB 7" = 0x55D2)
         if (vendorId == 0x1A86 && productId == 0x55D2) return "CH34x_BuiltIn";
+        // WCH multi-port built-in variants (IXHUB 10" candidates)
+        if (vendorId == 0x1A86 && productId == 0x55D3) return "CH343_BuiltIn";
+        if (vendorId == 0x1A86 && productId == 0x55D4) return "CH9102_BuiltIn";
+        if (vendorId == 0x1A86 && productId == 0x55D5) return "CH9143_BuiltIn";
+        if (vendorId == 0x1A86 && productId == 0x55D7) return "CH9101_BuiltIn";
+        if (vendorId == 0x1A86 && productId == 0x55D9) return "CH9344_BuiltIn";
+        if (vendorId == 0x1A86 && productId == 0x7530) return "CH348_BuiltIn";
         return null;
     }
 

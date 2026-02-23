@@ -2,6 +2,8 @@ package com.itclink.modbuslib.slave;
 
 import com.itclink.modbuslib.util.ModbusLog;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -42,6 +44,7 @@ public class TcpSlaveTransport {
 
         serverSocket = new ServerSocket(port);
         serverSocket.setReuseAddress(true);
+        serverSocket.setPerformancePreferences(0, 2, 1); // latency > bandwidth
         running = true;
 
         acceptThread = new Thread(() -> {
@@ -49,8 +52,11 @@ public class TcpSlaveTransport {
             while (running && !Thread.currentThread().isInterrupted()) {
                 try {
                     Socket clientSocket = serverSocket.accept();
-                    clientSocket.setTcpNoDelay(true);
+                    clientSocket.setTcpNoDelay(true);   // Disable Nagle - send immediately
                     clientSocket.setKeepAlive(true);
+                    clientSocket.setSendBufferSize(4096);
+                    clientSocket.setReceiveBufferSize(4096);
+                    clientSocket.setPerformancePreferences(0, 2, 1); // prioritize latency
 
                     ClientHandler clientHandler = new ClientHandler(clientSocket);
                     clients.add(clientHandler);
@@ -111,41 +117,45 @@ public class TcpSlaveTransport {
 
         void start() {
             readThread = new Thread(() -> {
+                // Pre-allocated buffers - reused every request (no GC pressure)
                 byte[] headerBuffer = new byte[MBAP_HEADER_SIZE];
+                byte[] frameBuffer  = new byte[MBAP_HEADER_SIZE + 260]; // max Modbus TCP frame
+
                 try {
-                    InputStream in = socket.getInputStream();
-                    OutputStream out = socket.getOutputStream();
+                    InputStream in   = new BufferedInputStream(socket.getInputStream(), 512);
+                    OutputStream out = new BufferedOutputStream(socket.getOutputStream(), 512);
 
                     while (running && !Thread.currentThread().isInterrupted()) {
-                        // Read MBAP header
+                        // Read MBAP header (6 bytes)
                         int read = readFully(in, headerBuffer, 0, MBAP_HEADER_SIZE);
                         if (read < MBAP_HEADER_SIZE) break;
 
-                        // Parse length
+                        // Parse length from MBAP
                         int dataLength = ((headerBuffer[4] & 0xFF) << 8) | (headerBuffer[5] & 0xFF);
                         if (dataLength <= 0 || dataLength > 260) {
                             ModbusLog.w(TAG, "Invalid MBAP length: " + dataLength);
                             continue;
                         }
 
-                        // Read full frame
-                        byte[] frame = new byte[MBAP_HEADER_SIZE + dataLength];
-                        System.arraycopy(headerBuffer, 0, frame, 0, MBAP_HEADER_SIZE);
-                        read = readFully(in, frame, MBAP_HEADER_SIZE, dataLength);
+                        // Assemble full frame into pre-allocated buffer
+                        System.arraycopy(headerBuffer, 0, frameBuffer, 0, MBAP_HEADER_SIZE);
+                        read = readFully(in, frameBuffer, MBAP_HEADER_SIZE, dataLength);
                         if (read < dataLength) break;
+
+                        // Create view of actual frame length (no new allocation needed for engine)
+                        byte[] frame = new byte[MBAP_HEADER_SIZE + dataLength];
+                        System.arraycopy(frameBuffer, 0, frame, 0, frame.length);
 
                         SlaveRequestHandler h = handler;
                         if (h != null) {
                             h.onSlaveEvent(SlaveRequestHandler.SlaveEvent.REQUEST_RECEIVED, null);
                         }
 
-                        // Process request
+                        // Process and respond - no synchronize needed (single writer per connection)
                         byte[] response = engine.processRequest(frame);
                         if (response != null) {
-                            synchronized (out) {
-                                out.write(response);
-                                out.flush();
-                            }
+                            out.write(response);
+                            out.flush(); // flush is fast with TCP_NODELAY
                             if (h != null) {
                                 h.onSlaveEvent(SlaveRequestHandler.SlaveEvent.RESPONSE_SENT, null);
                             }
@@ -169,6 +179,7 @@ public class TcpSlaveTransport {
                 }
             }, "ModbusSlave-Client-" + socket.getPort());
             readThread.setDaemon(true);
+            readThread.setPriority(Thread.MAX_PRIORITY);
             readThread.start();
         }
 

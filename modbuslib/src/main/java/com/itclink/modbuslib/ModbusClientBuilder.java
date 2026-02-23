@@ -5,6 +5,7 @@ import android.content.Context;
 import com.itclink.modbuslib.connection.ConnectionConfig;
 import com.itclink.modbuslib.engine.ModbusTimingConfig;
 import com.itclink.modbuslib.protocol.ModbusProtocol;
+import com.itclink.modbuslib.transport.ModbusTransport;
 import com.itclink.modbuslib.transport.UsbSerialConfig;
 
 /**
@@ -34,6 +35,7 @@ public class ModbusClientBuilder {
     private UsbSerialConfig serialConfig;
     private ModbusTimingConfig timingConfig;
     private boolean autoReconnect = true;
+    private ModbusTransport customTransport; // inject custom transport (e.g. NativeSerialTransport)
 
     public ModbusClientBuilder(Context context) {
         this.context = context.getApplicationContext();
@@ -69,7 +71,24 @@ public class ModbusClientBuilder {
         return this;
     }
 
+    /**
+     * ใช้ custom transport แทน UsbRtuTransport (เช่น NativeSerialTransport สำหรับ /dev/ttyS*)
+     * ถ้าตั้งค่านี้ ไม่ต้องเรียก protocol() เพราะจะใช้ RTU framing เสมอ
+     */
+    public ModbusClientBuilder transport(ModbusTransport transport) {
+        this.customTransport = transport;
+        return this;
+    }
+
     public ModbusClient build() {
+        // Custom transport path (e.g. NativeSerialTransport for /dev/ttyS*)
+        if (customTransport != null) {
+            ConnectionConfig.Builder configBuilder = new ConnectionConfig.Builder(ModbusProtocol.RTU);
+            configBuilder.autoReconnect(autoReconnect);
+            if (timingConfig != null) configBuilder.timingConfig(timingConfig);
+            return new ModbusClient(context, configBuilder.build(), customTransport);
+        }
+
         if (protocol == null) {
             throw new IllegalStateException("Protocol must be set (RTU or TCP)");
         }

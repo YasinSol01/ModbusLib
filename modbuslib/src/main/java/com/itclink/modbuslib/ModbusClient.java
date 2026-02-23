@@ -72,6 +72,27 @@ public class ModbusClient {
         engine.setTransport(transport);
     }
 
+    /**
+     * Constructor สำหรับ custom transport (เช่น NativeSerialTransport)
+     * ใช้ RTU framing เสมอ - เรียกผ่าน ModbusClientBuilder.transport()
+     */
+    ModbusClient(Context context, ConnectionConfig config, ModbusTransport injectedTransport) {
+        this.context = context;
+        this.config = config;
+        this.transport = injectedTransport;
+
+        ModbusTimingConfig timing = config.getTimingConfig();
+
+        // Custom transport ใช้ RTU framing เสมอ
+        engine = new ModbusEngine(
+            ModbusProtocol.RTU,
+            new ModbusRtuFrameBuilder(),
+            new RtuResponseParser(),
+            timing
+        );
+        engine.setTransport(transport);
+    }
+
     // ===== CONNECTION =====
 
     public void connect() throws ModbusTransportException {

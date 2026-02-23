@@ -7,13 +7,20 @@ Public facade for Master mode communication.
 ### Construction
 
 ```java
+// TCP or USB RTU
 ModbusClient client = new ModbusClientBuilder(context)
     .protocol(ModbusProtocol.TCP)       // Required: TCP or RTU
     .host("192.168.1.100")              // TCP only
     .port(502)                          // TCP only, default: 502
-    .serialConfig(UsbSerialConfig)      // RTU only
+    .serialConfig(UsbSerialConfig)      // RTU/USB only
     .timingConfig(ModbusTimingConfig)   // Optional
     .autoReconnect(true)                // Optional, default: true
+    .build();
+
+// Native UART (inject custom transport — skips protocol/serialConfig)
+ModbusClient client = new ModbusClientBuilder(context)
+    .transport(new NativeSerialTransport.Builder("/dev/ttyS4")
+        .baudRate(9600).parity(NativeSerialTransport.PARITY_EVEN).build())
     .build();
 ```
 
@@ -185,6 +192,44 @@ new UsbSerialConfig.Builder()
     .flowControl(UsbSerialConfig.FLOW_CONTROL_OFF)
     .build();
 ```
+
+## NativeSerialTransport
+
+Transport implementation for devices with built-in UART/RS-485 ports (`/dev/ttyS*`). Requires root.
+
+```java
+NativeSerialTransport transport = new NativeSerialTransport.Builder("/dev/ttyS4")
+    .baudRate(9600)         // Default: 9600
+    .dataBits(8)            // Default: 8
+    .stopBits(1)            // Default: 1 (use 2 for two stop bits)
+    .parity(NativeSerialTransport.PARITY_EVEN)  // Default: NONE
+    .build();
+```
+
+### Parity Constants
+
+| Constant | Value | Description |
+|---|---|---|
+| `PARITY_NONE` | 0 | No parity |
+| `PARITY_ODD` | 1 | Odd parity |
+| `PARITY_EVEN` | 2 | Even parity |
+
+### Static Utility
+
+```java
+// Scan /dev/ttyS*, /dev/ttyAS*, /dev/ttyHS* and return existing paths
+List<String> ports = NativeSerialTransport.findAvailablePorts();
+```
+
+Use with `ModbusClientBuilder.transport()`:
+
+```java
+ModbusClient client = new ModbusClientBuilder(context)
+    .transport(transport)
+    .build();
+```
+
+---
 
 ## ModbusTimingConfig
 

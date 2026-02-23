@@ -31,6 +31,33 @@ ModbusClient client = new ModbusClientBuilder(context)
 client.connect();
 ```
 
+### RTU (Native UART)
+
+For devices with built-in RS-485 serial ports (`/dev/ttyS*`) that do not expose a USB interface. Requires root for `chmod` and `stty` configuration.
+
+```java
+import com.itclink.modbuslib.transport.NativeSerialTransport;
+
+// Optional: discover available ports first
+List<String> ports = NativeSerialTransport.findAvailablePorts();
+// e.g. ["/dev/ttyS0", "/dev/ttyS4", "/dev/ttyS5"]
+
+NativeSerialTransport transport = new NativeSerialTransport.Builder("/dev/ttyS4")
+    .baudRate(9600)
+    .dataBits(8)                             // Default: 8
+    .stopBits(1)                             // Default: 1
+    .parity(NativeSerialTransport.PARITY_EVEN)
+    .build();
+
+ModbusClient client = new ModbusClientBuilder(context)
+    .transport(transport)
+    .build();
+
+client.connect();
+```
+
+**Parity constants:** `PARITY_NONE`, `PARITY_ODD`, `PARITY_EVEN`
+
 ### Custom Timing
 
 ```java
