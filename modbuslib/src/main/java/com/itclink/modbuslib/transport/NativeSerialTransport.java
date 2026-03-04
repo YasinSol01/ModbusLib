@@ -82,7 +82,12 @@ public class NativeSerialTransport implements ModbusTransport {
         execRoot("chmod 666 " + portPath);
 
         // 2. stty ตั้งค่า baud rate, parity, data bits
-        execRoot(buildSttyCommand());
+        String sttyCmd = buildSttyCommand();
+        Log.d(TAG, "stty command: " + sttyCmd);
+        execRoot(sttyCmd);
+        // รัน -istrip แยกต่างหากเพื่อให้แน่ใจว่า apply จริง
+        // (BusyBox stty บางรุ่น compound flag "raw" ไม่ครอบคลุม -istrip)
+        execRoot("stty -F " + portPath + " -istrip");
 
         // 3. เปิด file stream
         File port = new File(portPath);
@@ -157,6 +162,12 @@ public class NativeSerialTransport implements ModbusTransport {
             try {
                 int n = inputStream.read(buffer); // blocking
                 if (n > 0 && listener != null) {
+                    // Log raw bytes (hex) เพื่อ debug - ช่วยตรวจสอบว่า bit 7 ถูกตัดหรือไม่
+                    if (Log.isLoggable(TAG, Log.DEBUG)) {
+                        StringBuilder hex = new StringBuilder("RX[").append(n).append("]: ");
+                        for (int i = 0; i < n; i++) hex.append(String.format("%02X ", buffer[i] & 0xFF));
+                        Log.d(TAG, hex.toString().trim());
+                    }
                     listener.onDataReceived(Arrays.copyOf(buffer, n));
                 }
             } catch (IOException e) {
