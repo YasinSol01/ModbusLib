@@ -201,7 +201,9 @@ public class NativeSerialTransport implements ModbusTransport {
         }
 
         // Raw mode: ไม่ process newlines, echo off
-        sb.append(" raw -echo -echoe -echok -echonl -ixon -ixoff -crtscts");
+        // -istrip ต้องระบุชัดเจน: ป้องกัน TTY ตัด bit 7 ของทุก byte ที่รับ
+        // (บน Android/BusyBox บางรุ่น "raw" ไม่ครอบคลุม -istrip อัตโนมัติ)
+        sb.append(" raw -istrip -echo -echoe -echok -echonl -ixon -ixoff -crtscts");
         return sb.toString();
     }
 

@@ -42,7 +42,7 @@ afterEvaluate {
                 from(components["release"])
                 groupId = "com.github.YasinSol01"
                 artifactId = "modbuslib"
-                version = project.findProperty("version")?.toString() ?: "1.0.1"
+                version = project.findProperty("version")?.toString() ?: "1.0.2"
             }
         }
     }

@@ -33,7 +33,7 @@ Add dependency to `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.github.YasinSol01:ModbusLib:v1.0.1")
+    implementation("com.github.YasinSol01:ModbusLib:v1.0.2")
 }
 ```
 
