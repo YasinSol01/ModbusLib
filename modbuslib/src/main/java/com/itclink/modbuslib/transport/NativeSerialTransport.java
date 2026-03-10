@@ -81,13 +81,13 @@ public class NativeSerialTransport implements ModbusTransport {
         // 1. chmod 666 ให้ app อ่าน/เขียนได้ (ต้องการ root)
         execRoot("chmod 666 " + portPath);
 
-        // 2. stty ตั้งค่า baud rate, parity, data bits
+        // 2. stty pass 1: ก่อน open file — reset เป็น known state แล้ว set baud/parity
+        // (บาง UART driver อาจ reset termios อีกครั้งตอน open, ดังนั้น pass นี้เป็น best-effort)
+        execRoot("stty -F " + portPath + " sane");
         String sttyCmd = buildSttyCommand();
         Log.d(TAG, "stty command: " + sttyCmd);
         execRoot(sttyCmd);
-        // รัน -istrip แยกต่างหากเพื่อให้แน่ใจว่า apply จริง
-        // (BusyBox stty บางรุ่น compound flag "raw" ไม่ครอบคลุม -istrip)
-        execRoot("stty -F " + portPath + " -istrip");
+        execRoot(buildInputFlagsCommand());
 
         // 3. เปิด file stream
         File port = new File(portPath);
@@ -102,6 +102,12 @@ public class NativeSerialTransport implements ModbusTransport {
             setState(ConnectionState.ERROR);
             throw new ModbusTransportException("Cannot open " + portPath + ": " + e.getMessage());
         }
+
+        // stty pass 2: หลัง open file — re-apply ทุก flag อีกครั้ง
+        // จำเป็นเพราะ RK3566 UART driver reset termios ตอน open() และ/หรือ hupcl reset ตอน close
+        // Pass นี้ไม่ต้องทำ sane อีก (baud/parity ยังอยู่) — เพียงแค่ re-apply flags ที่สำคัญ
+        execRoot(sttyCmd);
+        execRoot(buildInputFlagsCommand());
 
         // 4. start read thread
         running    = true;
@@ -192,8 +198,8 @@ public class NativeSerialTransport implements ModbusTransport {
     }
 
     /**
-     * สร้าง stty command สำหรับตั้งค่า serial port
-     * ตัวอย่าง: stty -F /dev/ttyS4 9600 cs8 -cstopb -parenb raw -echo
+     * สร้าง stty command สำหรับตั้งค่า baud rate, parity, raw mode
+     * รวม -hupcl เพื่อป้องกัน UART driver reset termios ตอน close()
      */
     private String buildSttyCommand() {
         StringBuilder sb = new StringBuilder();
@@ -211,11 +217,22 @@ public class NativeSerialTransport implements ModbusTransport {
             default:          sb.append(" -parenb");         break;
         }
 
-        // Raw mode: ไม่ process newlines, echo off
-        // -istrip ต้องระบุชัดเจน: ป้องกัน TTY ตัด bit 7 ของทุก byte ที่รับ
-        // (บน Android/BusyBox บางรุ่น "raw" ไม่ครอบคลุม -istrip อัตโนมัติ)
-        sb.append(" raw -istrip -echo -echoe -echok -echonl -ixon -ixoff -crtscts");
+        // Raw mode + explicit -echo + -hupcl
+        // -hupcl: ป้องกัน kernel reset termios เมื่อ close file descriptor (HUPCL = hang up on close)
+        //         บน RK3566 hupcl ทำให้ settings กลับเป็น default ทุกครั้งที่ app ปิด
+        // -echo:  ปิด software echo (raw mode ควรปิดอยู่แล้ว แต่ระบุชัดเจนเพื่อความแน่ใจ)
+        sb.append(" raw -echo -hupcl -crtscts");
         return sb.toString();
+    }
+
+    /**
+     * stty command สำหรับ input processing flags ที่ BusyBox raw preset ไม่ clear ให้ครบ
+     * ต้องเรียกแยกต่างหาก (บาง BusyBox version ไม่รองรับ flags เหล่านี้ใน raw preset)
+     */
+    private String buildInputFlagsCommand() {
+        return "stty -F " + portPath
+            + " -istrip -iuclc -inlcr -igncr -icrnl -iutf8 -iexten -imaxbel"
+            + " -ignpar -inpck -ixon -ixoff -ixany -echoctl -echoke";
     }
 
     /**

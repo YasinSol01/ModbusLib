@@ -52,7 +52,8 @@ public class RtuResponseParser implements ModbusResponseParser {
         if (response == null || response.length < 5) return new int[0];
         int byteCount = response[2] & 0xFF;
         if (byteCount % 2 != 0) return new int[0];
-        if (response.length < 5 + byteCount) return new int[0];
+        // Accept frame with at least the data bytes (3 header + byteCount), CRC optional
+        if (response.length < 3 + byteCount) return new int[0];
 
         int registerCount = byteCount / 2;
         int[] registers = new int[registerCount];
@@ -69,7 +70,9 @@ public class RtuResponseParser implements ModbusResponseParser {
     public int[] extractCoils(byte[] response, int quantity) {
         if (response == null || response.length < 4) return new int[0];
         int byteCount = response[2] & 0xFF;
-        if (response.length < 5 + byteCount) return new int[0];
+        // Accept frame if it has at least the data bytes (3 header + byteCount data).
+        // CRC bytes (2) may be missing if the slave omits CRC_H or data arrived before CRC.
+        if (response.length < 3 + byteCount) return new int[0];
 
         int[] coils = new int[quantity];
         for (int i = 0; i < quantity; i++) {
