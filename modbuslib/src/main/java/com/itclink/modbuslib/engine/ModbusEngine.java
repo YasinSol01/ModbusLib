@@ -195,6 +195,17 @@ public class ModbusEngine implements TransportListener {
                     }
 
                     if (responseParser.matchesCommand(response, command)) {
+                        // RTU: verify CRC before accepting data — corrupted frames must be retried
+                        if (protocol == ModbusProtocol.RTU && !responseParser.isValidFrame(response)) {
+                            ModbusLog.w(TAG, "CRC mismatch slave=" + command.slaveId
+                                    + " fc=0x" + String.format("%02X", command.functionCode)
+                                    + " len=" + response.length + ", retrying");
+                            attempt++;
+                            if (attempt <= timing.getMaxRetries()) {
+                                Thread.sleep(timing.getRetryDelayMs());
+                            }
+                            continue;
+                        }
                         int[] data = responseParser.extractData(response, command);
                         successfulCommands.incrementAndGet();
                         consecutiveErrors.set(0);
