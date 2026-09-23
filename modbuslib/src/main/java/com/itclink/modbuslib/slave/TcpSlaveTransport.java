@@ -121,6 +121,11 @@ public class TcpSlaveTransport {
                 byte[] headerBuffer = new byte[MBAP_HEADER_SIZE];
                 byte[] frameBuffer  = new byte[MBAP_HEADER_SIZE + 260]; // max Modbus TCP frame
 
+                // Cache client IP once per connection for onAfterRemoteWrite
+                String clientAddr = "?";
+                try { clientAddr = socket.getInetAddress().getHostAddress(); } catch (Exception ignored) {}
+                final String clientIp = clientAddr;
+
                 try {
                     InputStream in   = new BufferedInputStream(socket.getInputStream(), 512);
                     OutputStream out = new BufferedOutputStream(socket.getOutputStream(), 512);
@@ -158,6 +163,18 @@ public class TcpSlaveTransport {
                             out.flush(); // flush is fast with TCP_NODELAY
                             if (h != null) {
                                 h.onSlaveEvent(SlaveRequestHandler.SlaveEvent.RESPONSE_SENT, null);
+                                // Notify handler of write with client IP (frame[7]=FC, [8-9]=addr, [10-11]=qty)
+                                if (frame.length > 9) {
+                                    int fc = frame[7] & 0xFF;
+                                    if (fc == 0x05 || fc == 0x06 || fc == 0x0F || fc == 0x10) {
+                                        int addr = ((frame[8] & 0xFF) << 8) | (frame[9] & 0xFF);
+                                        int qty  = (fc == 0x05 || fc == 0x06) ? 1
+                                                 : (frame.length > 11
+                                                    ? (((frame[10] & 0xFF) << 8) | (frame[11] & 0xFF))
+                                                    : 0);
+                                        h.onAfterRemoteWrite(fc, addr, qty, clientIp);
+                                    }
+                                }
                             }
                         }
                     }

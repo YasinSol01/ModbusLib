@@ -32,6 +32,20 @@ public interface SlaveRequestHandler {
     }
 
     /**
+     * Called after a TCP write FC (05/06/0F/10) is successfully processed.
+     * Unlike onAfterWrite (called from SlaveEngine, no IP), this is called from
+     * TcpSlaveTransport so the client's IP address is available.
+     *
+     * @param functionCode FC05/FC06/FC0F/FC10
+     * @param address      start address
+     * @param quantity     number of registers/coils written
+     * @param clientIp     IP address of the TCP master that sent the write
+     */
+    default void onAfterRemoteWrite(int functionCode, int address, int quantity, String clientIp) {
+        // Default: do nothing
+    }
+
+    /**
      * Called when a slave event occurs (connect, disconnect, error).
      */
     default void onSlaveEvent(SlaveEvent event, String message) {

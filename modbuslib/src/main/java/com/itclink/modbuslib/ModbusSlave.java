@@ -52,6 +52,7 @@ public class ModbusSlave {
     // Config
     private final int port;
     private final UsbSerialConfig serialConfig;
+    private final SlaveRequestHandler handler;
 
     ModbusSlave(Context context, ModbusProtocol protocol, int slaveId, int port,
                 UsbSerialConfig serialConfig, RegisterMap registerMap, SlaveRequestHandler handler) {
@@ -60,6 +61,7 @@ public class ModbusSlave {
         this.registerMap = registerMap;
         this.port = port;
         this.serialConfig = serialConfig;
+        this.handler = handler;
 
         this.engine = new SlaveEngine(slaveId, registerMap, protocol);
         if (handler != null) {
@@ -73,7 +75,7 @@ public class ModbusSlave {
     public void start() throws Exception {
         if (protocol == ModbusProtocol.TCP) {
             tcpTransport = new TcpSlaveTransport(port, engine);
-            tcpTransport.setHandler(engine.getSlaveId() > 0 ? null : null); // handler is in engine
+            tcpTransport.setHandler(handler); // for onAfterRemoteWrite + onSlaveEvent with client IP
             tcpTransport.start();
             ModbusLog.i(TAG, "TCP Slave started on port " + port + " (ID=" + engine.getSlaveId() + ")");
         } else {
